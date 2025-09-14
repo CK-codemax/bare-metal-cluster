@@ -23,9 +23,9 @@ mkdir -p "$PROJECT_ROOT/ansible/join-commands"
 cd "$TERRAFORM_DIR"
 TERRAFORM_OUTPUT=$(terraform output -json)
 
-# Extract instance information
-MASTER_IPS=$(echo "$TERRAFORM_OUTPUT" | jq -r '.master_instances.value[] | "\(.name):\n      ansible_host: \(.public_ip)"')
-WORKER_IPS=$(echo "$TERRAFORM_OUTPUT" | jq -r '.worker_instances.value[] | "\(.name):\n      ansible_host: \(.public_ip)"')
+# Extract instance information for simple inventory format
+MASTER_NAMES=$(echo "$TERRAFORM_OUTPUT" | jq -r '.master_instances.value[] | .name')
+WORKER_NAMES=$(echo "$TERRAFORM_OUTPUT" | jq -r '.worker_instances.value[] | .name')
 
 # Get Load Balancer DNS name if available
 LB_DNS_NAME=""
@@ -39,15 +39,33 @@ fi
 cat > "$INVENTORY_DIR/hosts.yml" << EOF
 all:
   hosts:
-$(echo "$MASTER_IPS" | sed 's/^/    /')
-$(echo "$WORKER_IPS" | sed 's/^/    /')
+EOF
+
+# Add master hosts
+echo "$TERRAFORM_OUTPUT" | jq -r '.master_instances.value[] | "    \(.name):\n      ansible_host: \(.public_ip)"' >> "$INVENTORY_DIR/hosts.yml"
+
+# Add worker hosts  
+echo "$TERRAFORM_OUTPUT" | jq -r '.worker_instances.value[] | "    \(.name):\n      ansible_host: \(.public_ip)"' >> "$INVENTORY_DIR/hosts.yml"
+
+# Add children and variables
+cat >> "$INVENTORY_DIR/hosts.yml" << EOF
   children:
     masters:
       hosts:
-$(echo "$TERRAFORM_OUTPUT" | jq -r '.master_instances.value[] | .name' | sed 's/^/        /' | sed 's/$/:/') 
+EOF
+
+# Add master host references
+echo "$MASTER_NAMES" | sed 's/^/        /' | sed 's/$/:/g' >> "$INVENTORY_DIR/hosts.yml"
+
+cat >> "$INVENTORY_DIR/hosts.yml" << EOF
     workers:
       hosts:
-$(echo "$TERRAFORM_OUTPUT" | jq -r '.worker_instances.value[] | .name' | sed 's/^/        /' | sed 's/$/:/') 
+EOF
+
+# Add worker host references
+echo "$WORKER_NAMES" | sed 's/^/        /' | sed 's/$/:/g' >> "$INVENTORY_DIR/hosts.yml"
+
+cat >> "$INVENTORY_DIR/hosts.yml" << EOF
     k8s_cluster:
       children:
         masters:
