@@ -24,10 +24,8 @@ cd "$TERRAFORM_DIR"
 TERRAFORM_OUTPUT=$(terraform output -json)
 
 # Extract instance information
-MASTERS=$(echo "$TERRAFORM_OUTPUT" | jq -r '.master_instances.value[] | "\(.name) ansible_host=\(.public_ip) private_ip=\(.private_ip) instance_id=\(.instance_id)"')
-WORKERS=$(echo "$TERRAFORM_OUTPUT" | jq -r '.worker_instances.value[] | "\(.name) ansible_host=\(.public_ip) private_ip=\(.private_ip) instance_id=\(.instance_id)"')
-MASTER_KEY_PATH=$(echo "$TERRAFORM_OUTPUT" | jq -r '.master_key_path.value')
-WORKER_KEY_PATH=$(echo "$TERRAFORM_OUTPUT" | jq -r '.worker_key_path.value')
+MASTER_IPS=$(echo "$TERRAFORM_OUTPUT" | jq -r '.master_instances.value[] | "\(.name):\n      ansible_host: \(.public_ip)"')
+WORKER_IPS=$(echo "$TERRAFORM_OUTPUT" | jq -r '.worker_instances.value[] | "\(.name):\n      ansible_host: \(.public_ip)"')
 
 # Get Load Balancer DNS name if available
 LB_DNS_NAME=""
@@ -37,26 +35,28 @@ if [ -f "$LB_TERRAFORM_DIR/terraform.tfstate" ]; then
     LB_DNS_NAME=$(echo "$LB_OUTPUT" | jq -r '.k8s_api_endpoint.value // empty')
 fi
 
-# Generate Ansible inventory
+# Generate simple Ansible inventory
 cat > "$INVENTORY_DIR/hosts.yml" << EOF
 all:
+  hosts:
+$(echo "$MASTER_IPS" | sed 's/^/    /')
+$(echo "$WORKER_IPS" | sed 's/^/    /')
   children:
     masters:
       hosts:
-$(echo "$MASTERS" | sed 's/^/        /')
-      vars:
-        ansible_ssh_private_key_file: $MASTER_KEY_PATH
-        ansible_user: ubuntu
-        ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+$(echo "$TERRAFORM_OUTPUT" | jq -r '.master_instances.value[] | .name' | sed 's/^/        /' | sed 's/$/:/') 
     workers:
       hosts:
-$(echo "$WORKERS" | sed 's/^/        /')
+$(echo "$TERRAFORM_OUTPUT" | jq -r '.worker_instances.value[] | .name' | sed 's/^/        /' | sed 's/$/:/') 
+    k8s_cluster:
+      children:
+        masters:
+        workers:
       vars:
-        ansible_ssh_private_key_file: $WORKER_KEY_PATH
         ansible_user: ubuntu
+        ansible_ssh_private_key_file: ../terraform/provision-vms/master-key.pem
         ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-  vars:
-    lb_dns_name: "${LB_DNS_NAME:-PLACEHOLDER_LB_ENDPOINT}"
+        lb_dns_name: "${LB_DNS_NAME:-PLACEHOLDER_LB_ENDPOINT}"
 EOF
 
 echo "✅ Ansible inventory generated at $INVENTORY_DIR/hosts.yml"
