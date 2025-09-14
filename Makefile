@@ -7,19 +7,31 @@ help:
 	@echo "================================"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  deploy       - Full deployment (VMs + LB + Cluster)"
-	@echo "  deploy-vms   - Deploy only EC2 instances"
-	@echo "  deploy-lb    - Deploy only Load Balancer"
-	@echo "  deploy-cluster - Setup only Kubernetes cluster"
-	@echo "  inventory    - Generate Ansible inventory"
-	@echo "  verify       - Verify cluster status"
-	@echo "  test         - Run cluster tests"
-	@echo "  clean        - Full cleanup"
-	@echo "  clean-lb     - Remove only Load Balancer"
-	@echo "  clean-vms    - Remove only EC2 instances"
-	@echo "  help         - Show this help"
+	@echo "  deploy-infrastructure - Deploy infrastructure only (Recommended)"
+	@echo "  deploy-cluster       - Setup Kubernetes cluster (after updating inventory)"
+	@echo "  deploy               - Full deployment (may have IP issues)"
+	@echo "  deploy-vms           - Deploy only EC2 instances"
+	@echo "  deploy-lb            - Deploy only Load Balancer"
+	@echo "  inventory            - Generate Ansible inventory (legacy)"
+	@echo "  verify               - Verify cluster status"
+	@echo "  test                 - Run cluster tests"
+	@echo "  test-connectivity    - Test Ansible connectivity"
+	@echo "  clean                - Full cleanup"
+	@echo "  clean-lb             - Remove only Load Balancer"
+	@echo "  clean-vms            - Remove only EC2 instances"
+	@echo "  help                 - Show this help"
 
-# Full deployment
+# Deploy infrastructure only (Recommended)
+deploy-infrastructure:
+	@echo "🏗️  Deploying infrastructure..."
+	./scripts/setup-infrastructure.sh
+
+# Setup Kubernetes cluster only
+deploy-cluster:
+	@echo "☸️  Setting up Kubernetes cluster..."
+	./scripts/setup-cluster.sh
+
+# Full deployment (legacy, may have IP issues)
 deploy:
 	@echo "🚀 Starting full deployment..."
 	./scripts/deploy-cluster.sh
@@ -27,22 +39,22 @@ deploy:
 # Deploy VMs only
 deploy-vms:
 	@echo "🖥️  Deploying EC2 instances..."
-	./scripts/deploy-cluster.sh vms
+	./scripts/setup-infrastructure.sh vms
 
 # Deploy Load Balancer only
 deploy-lb:
 	@echo "⚖️  Deploying Load Balancer..."
-	./scripts/deploy-cluster.sh lb
+	./scripts/setup-infrastructure.sh lb
 
-# Setup Kubernetes cluster only
-deploy-cluster:
-	@echo "☸️  Setting up Kubernetes cluster..."
-	./scripts/deploy-cluster.sh cluster
-
-# Generate Ansible inventory
+# Generate Ansible inventory (legacy)
 inventory:
 	@echo "📋 Generating Ansible inventory..."
 	./scripts/generate-inventory.sh
+
+# Test Ansible connectivity
+test-connectivity:
+	@echo "🔗 Testing Ansible connectivity..."
+	./scripts/setup-cluster.sh test
 
 # Verify cluster
 verify:

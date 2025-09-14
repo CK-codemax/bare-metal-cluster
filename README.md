@@ -78,55 +78,93 @@ aws configure
 
 ## 🚀 Quick Start
 
-### Option 1: Full Automated Deployment
+### Recommended Two-Step Deployment
+
+**Step 1: Deploy Infrastructure**
 ```bash
 # Clone and navigate to project
 git clone <repository-url>
 cd bare-metal-cluster
 
-# Deploy everything with one command
-./scripts/deploy-cluster.sh
+# Deploy AWS infrastructure (EC2 instances + Load Balancer)
+./scripts/setup-infrastructure.sh
 ```
 
-### Option 2: Step-by-Step Deployment
+**Step 2: Update Inventory and Setup Cluster**
 ```bash
-# 1. Deploy EC2 instances
-./scripts/deploy-cluster.sh vms
+# Edit inventory file with actual IP addresses
+nano ansible/inventory/hosts.yml
 
-# 2. Deploy Load Balancer
-./scripts/deploy-cluster.sh lb
+# Replace placeholders with actual IPs:
+# YOUR_MASTER1_IP_HERE → 51.20.83.140
+# YOUR_MASTER2_IP_HERE → 16.171.37.52
+# etc.
 
-# 3. Setup Kubernetes cluster
-./scripts/deploy-cluster.sh cluster
+# Test connectivity
+cd ansible && ansible all -m ping
+
+# Setup Kubernetes cluster
+./scripts/setup-cluster.sh
+```
+
+### Alternative: Legacy Full Automation
+```bash
+# Full automated deployment (may have inventory issues with dynamic IPs)
+./scripts/deploy-cluster.sh
 ```
 
 ## 🛠️ Deployment Methods
 
-### Method 1: Using Shell Scripts (.sh)
+### Method 1: Using Shell Scripts (.sh) - Recommended
 
-**Full Automated Deployment:**
+**Two-Step Deployment (Recommended):**
 ```bash
-# Deploy everything with one command
-./scripts/deploy-cluster.sh
+# Step 1: Deploy infrastructure
+./scripts/setup-infrastructure.sh
+
+# Step 2: Update inventory with actual IPs, then setup cluster
+nano ansible/inventory/hosts.yml  # Update with actual IPs
+./scripts/setup-cluster.sh
 ```
 
-**Step-by-Step Deployment:**
+**Infrastructure Deployment Options:**
 ```bash
+# Deploy both VMs and Load Balancer
+./scripts/setup-infrastructure.sh
+
 # Deploy only EC2 instances
-./scripts/deploy-cluster.sh vms
+./scripts/setup-infrastructure.sh vms
 
-# Deploy only Load Balancer (after VMs are ready)
-./scripts/deploy-cluster.sh lb
-
-# Setup only Kubernetes cluster (assumes VMs and LB exist)
-./scripts/deploy-cluster.sh cluster
+# Deploy only Load Balancer
+./scripts/setup-infrastructure.sh lb
 ```
 
-**Individual Script Commands:**
+**Cluster Setup Options:**
 ```bash
-# Generate Ansible inventory from Terraform outputs
-./scripts/generate-inventory.sh
+# Full cluster setup
+./scripts/setup-cluster.sh
 
+# Install only prerequisites
+./scripts/setup-cluster.sh prerequisites
+
+# Setup only cluster (assumes prerequisites done)
+./scripts/setup-cluster.sh cluster
+
+# Test connectivity only
+./scripts/setup-cluster.sh test
+```
+
+**Legacy Full Automation (May Have IP Issues):**
+```bash
+# Deploy everything with one command (uses generate-inventory.sh)
+./scripts/deploy-cluster.sh
+
+# Generate Ansible inventory from Terraform outputs (may fail)
+./scripts/generate-inventory.sh
+```
+
+**Cleanup Commands:**
+```bash
 # Full cleanup of all resources
 ./scripts/cleanup-cluster.sh
 
@@ -143,13 +181,17 @@ cd bare-metal-cluster
 # Show all available commands
 make help
 
-# Full deployment
-make deploy
+# Recommended two-step deployment
+make deploy-infrastructure  # Deploy infrastructure only
+# (Then update inventory manually)
+make deploy-cluster        # Setup Kubernetes cluster
 
-# Step-by-step deployment
-make deploy-vms      # Deploy EC2 instances
-make deploy-lb       # Deploy Load Balancer
-make deploy-cluster  # Setup Kubernetes cluster
+# Legacy full deployment
+make deploy                # Full deployment (may have IP issues)
+
+# Individual components
+make deploy-vms            # Deploy EC2 instances
+make deploy-lb             # Deploy Load Balancer
 ```
 
 **Management Commands:**
@@ -348,6 +390,29 @@ bare-metal-cluster/
 ```
 
 ## ⚙️ Configuration
+
+## ⚠️ Important: Dynamic IP Addresses
+
+**AWS EC2 instances get new public IP addresses each time they are stopped and started.** This affects:
+
+- **Ansible inventory** - IPs become invalid after stop/start
+- **SSH access** - New IPs needed for connection
+- **Load balancer targets** - May need updating
+
+### Solutions:
+
+1. **Use our two-step deployment** (Recommended)
+   - Deploy infrastructure first
+   - Manually update inventory with current IPs
+   - Better control and reliability
+
+2. **Use private IPs** (Production environments)
+   - Connect via VPN or bastion host
+   - Private IPs are static within VPC
+
+3. **Use Elastic IPs** (Additional cost)
+   - Static public IPs that persist
+   - ~$3.65/month per IP when not attached to running instance
 
 ### Terraform Variables
 
