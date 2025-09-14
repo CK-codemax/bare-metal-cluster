@@ -100,6 +100,211 @@ cd bare-metal-cluster
 ./scripts/deploy-cluster.sh cluster
 ```
 
+## 🛠️ Deployment Methods
+
+### Method 1: Using Shell Scripts (.sh)
+
+**Full Automated Deployment:**
+```bash
+# Deploy everything with one command
+./scripts/deploy-cluster.sh
+```
+
+**Step-by-Step Deployment:**
+```bash
+# Deploy only EC2 instances
+./scripts/deploy-cluster.sh vms
+
+# Deploy only Load Balancer (after VMs are ready)
+./scripts/deploy-cluster.sh lb
+
+# Setup only Kubernetes cluster (assumes VMs and LB exist)
+./scripts/deploy-cluster.sh cluster
+```
+
+**Individual Script Commands:**
+```bash
+# Generate Ansible inventory from Terraform outputs
+./scripts/generate-inventory.sh
+
+# Full cleanup of all resources
+./scripts/cleanup-cluster.sh
+
+# Partial cleanup options
+./scripts/cleanup-cluster.sh lb     # Remove only Load Balancer
+./scripts/cleanup-cluster.sh vms    # Remove only EC2 instances
+./scripts/cleanup-cluster.sh files  # Clean only generated files
+```
+
+### Method 2: Using Makefile
+
+**Quick Commands:**
+```bash
+# Show all available commands
+make help
+
+# Full deployment
+make deploy
+
+# Step-by-step deployment
+make deploy-vms      # Deploy EC2 instances
+make deploy-lb       # Deploy Load Balancer
+make deploy-cluster  # Setup Kubernetes cluster
+```
+
+**Management Commands:**
+```bash
+# Generate Ansible inventory
+make inventory
+
+# Verify cluster health
+make verify
+
+# Test cluster functionality
+make test
+
+# Show cluster information
+make info
+
+# SSH to master1
+make ssh-master1
+```
+
+**Cleanup Commands:**
+```bash
+# Full cleanup
+make clean
+
+# Partial cleanup
+make clean-lb        # Remove only Load Balancer
+make clean-vms       # Remove only EC2 instances
+```
+
+**Development Commands:**
+```bash
+# Check dependencies
+make check-deps
+
+# Format Terraform files
+make fmt
+
+# Validate Terraform configurations
+make validate
+
+# Lint Ansible playbooks
+make lint
+```
+
+### Method 3: Using Ansible Directly
+
+**Prerequisites:** Ensure VMs and Load Balancer are deployed first.
+
+**Full Cluster Setup:**
+```bash
+cd ansible
+
+# Run all playbooks in sequence
+ansible-playbook playbooks/main.yml
+```
+
+**Individual Playbook Execution:**
+```bash
+cd ansible
+
+# 1. Install prerequisites (containerd, kubetools)
+ansible-playbook playbooks/01-install-prerequisites.yml
+
+# 2. Verify prerequisites installation
+ansible-playbook playbooks/02-verify-prerequisites.yml
+
+# 3. Configure hostnames (master1, master2, etc.)
+ansible-playbook playbooks/03-configure-hostnames.yml
+
+# 4. Initialize first master node
+ansible-playbook playbooks/04-init-first-master.yml
+
+# 5. Install CNI (Calico)
+ansible-playbook playbooks/05-install-cni.yml
+
+# 6. Join additional master nodes
+ansible-playbook playbooks/06-join-masters.yml
+
+# 7. Join worker nodes
+ansible-playbook playbooks/07-join-workers.yml
+
+# 8. Verify cluster health
+ansible-playbook playbooks/08-verify-cluster.yml
+```
+
+**Ansible Ad-hoc Commands:**
+```bash
+cd ansible
+
+# Test connectivity to all nodes
+ansible all -m ping
+
+# Check system status on all nodes
+ansible all -m shell -a "systemctl status kubelet"
+
+# Restart services if needed
+ansible all -m systemd -a "name=kubelet state=restarted" --become
+
+# Check containerd status
+ansible all -m shell -a "systemctl status containerd" --become
+
+# Run commands on specific groups
+ansible masters -m shell -a "kubectl get nodes" --become
+ansible workers -m shell -a "hostname"
+
+# Check disk space on all nodes
+ansible all -m shell -a "df -h"
+
+# Update packages on all nodes
+ansible all -m apt -a "update_cache=yes upgrade=yes" --become
+```
+
+**Ansible Inventory Management:**
+```bash
+# Generate inventory from Terraform outputs
+./scripts/generate-inventory.sh
+
+# View current inventory
+cat ansible/inventory/hosts.yml
+
+# Test specific groups
+ansible masters -m ping
+ansible workers -m ping
+
+# List all hosts
+ansible all --list-hosts
+```
+
+**Advanced Ansible Operations:**
+```bash
+cd ansible
+
+# Run playbooks with extra variables
+ansible-playbook playbooks/04-init-first-master.yml -e "k8s_version=1.29.0"
+
+# Run playbooks with increased verbosity
+ansible-playbook playbooks/main.yml -v
+
+# Run playbooks in check mode (dry run)
+ansible-playbook playbooks/01-install-prerequisites.yml --check
+
+# Run specific tasks by tags (if implemented)
+ansible-playbook playbooks/main.yml --tags "install"
+
+# Skip specific tasks by tags
+ansible-playbook playbooks/main.yml --skip-tags "verify"
+
+# Run playbooks on specific hosts
+ansible-playbook playbooks/02-verify-prerequisites.yml --limit master1
+
+# Run playbooks with different inventory
+ansible-playbook playbooks/main.yml -i custom-inventory.yml
+```
+
 ## 📁 Project Structure
 
 ```
