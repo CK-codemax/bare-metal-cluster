@@ -10,27 +10,25 @@ resource "aws_instance" "masters" {
 
   availability_zone = element(split(",", var.zones), count.index)
 
+  root_block_device {
+    volume_size = var.volume_size
+    volume_type = "gp3"
+  }
+
+  # Set hostname during boot
+  user_data = <<-EOF
+              #!/bin/bash
+              hostnamectl set-hostname master${count.index + 1}
+              echo "127.0.0.1 master${count.index + 1}" >> /etc/hosts
+              apt-get update -y
+              apt-get install -y python3 python3-pip
+              EOF
+
   tags = {
     Name = "k8s-master-${count.index + 1}"
     Role = "master"
+    Hostname = "master${count.index + 1}"
   }
-
-  user_data = <<-EOF
-              #!/bin/bash
-              apt-get update -y
-              apt-get install -y git
-
-              # Clone the repo
-              git clone https://github.com/sandervanvugt/cka.git /home/ubuntu/cka
-
-              # Make scripts executable
-              chmod +x /home/ubuntu/cka/setup-container.sh
-              chmod +x /home/ubuntu/cka/setup-kubetools.sh
-
-              # Run scripts sequentially
-              /home/ubuntu/cka/setup-container.sh
-              /home/ubuntu/cka/setup-kubetools.sh
-              EOF
 }
 
 #################################
@@ -45,26 +43,23 @@ resource "aws_instance" "workers" {
 
   availability_zone = element(split(",", var.zones), count.index)
 
+  root_block_device {
+    volume_size = var.volume_size
+    volume_type = "gp3"
+  }
+
+  # Set hostname during boot
+  user_data = <<-EOF
+              #!/bin/bash
+              hostnamectl set-hostname worker${count.index + 1}
+              echo "127.0.0.1 worker${count.index + 1}" >> /etc/hosts
+              apt-get update -y
+              apt-get install -y python3 python3-pip
+              EOF
+
   tags = {
     Name = "k8s-worker-${count.index + 1}"
     Role = "worker"
+    Hostname = "worker${count.index + 1}"
   }
-
-  user_data = <<-EOF
-              #!/bin/bash
-              apt-get update -y
-              apt-get install -y git
-
-              # Clone the repo
-              git clone https://github.com/sandervanvugt/cka.git /home/ubuntu/cka
-
-              # Make scripts executable
-              chmod +x /home/ubuntu/cka/setup-container.sh
-              chmod +x /home/ubuntu/cka/setup-kubetools.sh
-
-              # Run scripts sequentially
-              /home/ubuntu/cka/setup-container.sh
-              /home/ubuntu/cka/setup-kubetools.sh
-              EOF
 }
-

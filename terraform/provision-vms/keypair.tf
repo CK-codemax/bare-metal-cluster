@@ -35,4 +35,3 @@ resource "local_file" "worker_private_key" {
   filename        = "${path.module}/worker-key.pem"
   file_permission = "0400"
 }
-

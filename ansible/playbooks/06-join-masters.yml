@@ -1,0 +1,64 @@
+---
+- name: Join Additional Master Nodes
+  hosts: masters:!master1
+  become: yes
+  gather_facts: yes
+  serial: 1
+  
+  tasks:
+    - name: Copy master join command from localhost
+      copy:
+        src: "../join-commands/master-join-command.sh"
+        dest: "/tmp/master-join-command.sh"
+        mode: '0755'
+        
+    - name: Join master to cluster
+      shell: /tmp/master-join-command.sh
+      register: master_join
+      
+    - name: Display master join output
+      debug:
+        var: master_join.stdout_lines
+        
+    - name: Create .kube directory for ubuntu user
+      file:
+        path: /home/ubuntu/.kube
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+        
+    - name: Copy admin.conf to ubuntu user's kube config
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/ubuntu/.kube/config
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+        remote_src: yes
+        
+    - name: Create .kube directory for root user
+      file:
+        path: /root/.kube
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+        
+    - name: Copy admin.conf to root user's kube config
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /root/.kube/config
+        owner: root
+        group: root
+        mode: '0644'
+        remote_src: yes
+        
+    - name: Wait for node to be ready
+      shell: kubectl get node {{ inventory_hostname }} --no-headers | awk '{print $2}'
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: node_status
+      until: node_status.stdout == "Ready"
+      retries: 30
+      delay: 10

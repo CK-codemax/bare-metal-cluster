@@ -1,0 +1,71 @@
+---
+- name: Verify Kubernetes Prerequisites
+  hosts: all
+  become: yes
+  gather_facts: yes
+  
+  tasks:
+    - name: Check containerd status
+      systemd:
+        name: containerd
+      register: containerd_status
+      
+    - name: Display containerd status
+      debug:
+        msg: "Containerd is {{ containerd_status.status.ActiveState }}"
+        
+    - name: Check kubelet status
+      systemd:
+        name: kubelet
+      register: kubelet_status
+      
+    - name: Display kubelet status
+      debug:
+        msg: "Kubelet is {{ kubelet_status.status.ActiveState }}"
+        
+    - name: Check kubeadm version
+      command: kubeadm version -o short
+      register: kubeadm_version
+      changed_when: false
+      
+    - name: Display kubeadm version
+      debug:
+        msg: "{{ kubeadm_version.stdout }}"
+        
+    - name: Check kubectl version
+      command: kubectl version --client -o yaml
+      register: kubectl_version
+      changed_when: false
+      
+    - name: Display kubectl client version
+      debug:
+        msg: "{{ kubectl_version.stdout }}"
+        
+    - name: Check if containerd is responding
+      command: crictl info
+      register: crictl_info
+      changed_when: false
+      
+    - name: Display containerd runtime info
+      debug:
+        var: crictl_info.stdout_lines
+        
+    - name: Verify swap is disabled
+      command: swapon --show
+      register: swap_status
+      changed_when: false
+      failed_when: false
+      
+    - name: Display swap status
+      debug:
+        msg: "{{ 'Swap is disabled' if swap_status.stdout == '' else 'WARNING: Swap is enabled - ' + swap_status.stdout }}"
+        
+    - name: Check if br_netfilter module is loaded
+      command: lsmod | grep br_netfilter
+      register: br_netfilter
+      changed_when: false
+      failed_when: false
+      
+    - name: Display br_netfilter status
+      debug:
+        msg: "{{ 'br_netfilter module is loaded' if br_netfilter.rc == 0 else 'WARNING: br_netfilter module not loaded' }}"

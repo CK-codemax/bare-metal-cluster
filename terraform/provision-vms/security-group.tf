@@ -1,8 +1,3 @@
-# Fetch the default VPC
-data "aws_vpc" "default" {
-  default = true
-}
-
 # Security group for HA Kubernetes cluster
 resource "aws_security_group" "ha_sg" {
   name        = "k8s-ha-sg"
@@ -50,6 +45,22 @@ resource "aws_security_group" "ha_sg" {
     cidr_blocks = ["0.0.0.0/0"] # Restrict in production
   }
 
+  # Flannel/Calico VXLAN
+  ingress {
+    from_port = 8472
+    to_port   = 8472
+    protocol  = "udp"
+    self      = true
+  }
+
+  # Calico BGP
+  ingress {
+    from_port = 179
+    to_port   = 179
+    protocol  = "tcp"
+    self      = true
+  }
+
   # Allow all outbound traffic
   egress {
     from_port   = 0
@@ -62,4 +73,3 @@ resource "aws_security_group" "ha_sg" {
     Name = "k8s-ha-sg"
   }
 }
-

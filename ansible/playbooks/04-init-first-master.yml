@@ -1,0 +1,90 @@
+---
+- name: Initialize First Master Node
+  hosts: master1
+  become: yes
+  gather_facts: yes
+  vars:
+    k8s_version: "1.28.0"
+    pod_network_cidr: "10.244.0.0/16"
+    
+  tasks:
+    - name: Get load balancer endpoint from Terraform output
+      set_fact:
+        lb_endpoint: "{{ lb_dns_name | default('PLACEHOLDER_LB_ENDPOINT') }}"
+        
+    - name: Create kubeadm config file
+      template:
+        src: ../templates/kubeadm-config.yaml.j2
+        dest: /tmp/kubeadm-config.yaml
+        
+    - name: Initialize Kubernetes cluster
+      command: kubeadm init --config=/tmp/kubeadm-config.yaml --upload-certs
+      register: kubeadm_init
+      
+    - name: Display kubeadm init output
+      debug:
+        var: kubeadm_init.stdout_lines
+        
+    - name: Create .kube directory for ubuntu user
+      file:
+        path: /home/ubuntu/.kube
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+        
+    - name: Copy admin.conf to ubuntu user's kube config
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/ubuntu/.kube/config
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+        remote_src: yes
+        
+    - name: Create .kube directory for root user
+      file:
+        path: /root/.kube
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+        
+    - name: Copy admin.conf to root user's kube config
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /root/.kube/config
+        owner: root
+        group: root
+        mode: '0644'
+        remote_src: yes
+        
+    - name: Extract join command for workers
+      shell: kubeadm token create --print-join-command
+      register: worker_join_command
+      
+    - name: Extract join command for masters
+      shell: |
+        kubeadm init phase upload-certs --upload-certs 2>/dev/null | tail -1
+      register: certificate_key
+      
+    - name: Create master join command
+      set_fact:
+        master_join_command: "{{ worker_join_command.stdout }} --control-plane --certificate-key {{ certificate_key.stdout }}"
+        
+    - name: Save join commands to files
+      copy:
+        content: "{{ item.content }}"
+        dest: "/tmp/{{ item.filename }}"
+      loop:
+        - { filename: "worker-join-command.sh", content: "{{ worker_join_command.stdout }}" }
+        - { filename: "master-join-command.sh", content: "{{ master_join_command }}" }
+        
+    - name: Fetch join commands to localhost
+      fetch:
+        src: "/tmp/{{ item }}"
+        dest: "../join-commands/{{ item }}"
+        flat: yes
+      loop:
+        - worker-join-command.sh
+        - master-join-command.sh

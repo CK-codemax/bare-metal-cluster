@@ -1,0 +1,39 @@
+---
+- name: Configure Hostnames and Hosts File
+  hosts: all
+  become: yes
+  gather_facts: yes
+  
+  tasks:
+    - name: Set hostname for masters
+      hostname:
+        name: "{{ inventory_hostname }}"
+      when: "'masters' in group_names"
+      
+    - name: Set hostname for workers
+      hostname:
+        name: "{{ inventory_hostname }}"
+      when: "'workers' in group_names"
+      
+    - name: Update /etc/hosts with all cluster nodes
+      lineinfile:
+        path: /etc/hosts
+        line: "{{ hostvars[item]['ansible_default_ipv4']['address'] }} {{ item }}"
+        create: yes
+      loop: "{{ groups['all'] }}"
+      
+    - name: Remove cloud-init hostname management
+      file:
+        path: /etc/cloud/cloud.cfg.d/99-disable-hostname.cfg
+        state: touch
+        
+    - name: Disable cloud-init hostname management
+      lineinfile:
+        path: /etc/cloud/cloud.cfg.d/99-disable-hostname.cfg
+        line: "preserve_hostname: true"
+        create: yes
+        
+    - name: Restart systemd-hostnamed
+      systemd:
+        name: systemd-hostnamed
+        state: restarted

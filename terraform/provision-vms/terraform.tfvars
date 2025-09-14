@@ -15,4 +15,3 @@ control_plane_size = "t3.medium"
 
 # EBS volume size (in GB)
 volume_size = 20
-

@@ -9,12 +9,12 @@ variable "zones" {
 }
 
 variable "node_count" {
-  default     = 2
+  default     = 3
   description = "Number of worker nodes"
 }
 
 variable "node_size" {
-  default     = "t3.small"
+  default     = "t3.medium"
   description = "EC2 instance type for worker nodes"
 }
 
@@ -24,8 +24,6 @@ variable "control_plane_size" {
 }
 
 variable "volume_size" {
-  default = 12
-  # for production, allow kops to create a larger volume
+  default = 20
   description = "EBS volume size for nodes"
 }
-

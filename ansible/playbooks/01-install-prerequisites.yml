@@ -1,0 +1,73 @@
+---
+- name: Install Kubernetes Prerequisites
+  hosts: all
+  become: yes
+  gather_facts: yes
+  vars:
+    setup_scripts_dir: "/home/ubuntu/cka"
+    
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+        
+    - name: Install required packages
+      apt:
+        name:
+          - git
+          - curl
+          - wget
+          - apt-transport-https
+          - ca-certificates
+          - gnupg
+          - lsb-release
+        state: present
+        
+    - name: Clone the CKA repository
+      git:
+        repo: https://github.com/sandervanvugt/cka.git
+        dest: "{{ setup_scripts_dir }}"
+        force: yes
+      become_user: ubuntu
+      
+    - name: Make setup scripts executable
+      file:
+        path: "{{ setup_scripts_dir }}/{{ item }}"
+        mode: '0755'
+      with_items:
+        - setup-container.sh
+        - setup-kubetools.sh
+        
+    - name: Run container setup script
+      shell: "{{ setup_scripts_dir }}/setup-container.sh"
+      args:
+        creates: /etc/containerd/config.toml
+      register: container_setup
+      
+    - name: Display container setup output
+      debug:
+        var: container_setup.stdout_lines
+      when: container_setup.stdout_lines is defined
+      
+    - name: Run kubetools setup script
+      shell: "{{ setup_scripts_dir }}/setup-kubetools.sh"
+      args:
+        creates: /usr/bin/kubeadm
+      register: kubetools_setup
+      
+    - name: Display kubetools setup output
+      debug:
+        var: kubetools_setup.stdout_lines
+      when: kubetools_setup.stdout_lines is defined
+      
+    - name: Enable and start containerd
+      systemd:
+        name: containerd
+        enabled: yes
+        state: started
+        
+    - name: Enable kubelet (will start after kubeadm init)
+      systemd:
+        name: kubelet
+        enabled: yes

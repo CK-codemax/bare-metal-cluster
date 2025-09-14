@@ -1,0 +1,40 @@
+---
+- name: Install CNI Plugin (Calico)
+  hosts: master1
+  become: yes
+  gather_facts: yes
+  
+  tasks:
+    - name: Download Calico manifest
+      get_url:
+        url: https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico.yaml
+        dest: /tmp/calico.yaml
+        
+    - name: Apply Calico CNI
+      shell: kubectl apply -f /tmp/calico.yaml
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: calico_apply
+      
+    - name: Display Calico installation output
+      debug:
+        var: calico_apply.stdout_lines
+        
+    - name: Wait for Calico pods to be ready
+      shell: kubectl get pods -n kube-system -l k8s-app=calico-node --no-headers | grep -v Running | wc -l
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: calico_pods_not_ready
+      until: calico_pods_not_ready.stdout | int == 0
+      retries: 30
+      delay: 10
+      
+    - name: Verify CNI installation
+      shell: kubectl get pods -n kube-system -l k8s-app=calico-node
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: calico_status
+      
+    - name: Display Calico pod status
+      debug:
+        var: calico_status.stdout_lines

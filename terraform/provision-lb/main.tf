@@ -1,3 +1,16 @@
+# Get master instances from remote state
+data "terraform_remote_state" "vms" {
+  backend = "local"
+  config = {
+    path = "../provision-vms/terraform.tfstate"
+  }
+}
+
+# Get default VPC
+data "aws_vpc" "default" {
+  default = true
+}
+
 # Get subnets in the default VPC filtered by the provided zones
 data "aws_subnets" "default_vpc" {
   filter {
@@ -50,9 +63,9 @@ resource "aws_lb_target_group" "k8s_masters_tg" {
 # Attach Master Instances
 #################################
 resource "aws_lb_target_group_attachment" "master_attachments" {
-  count            = length(aws_instance.masters)
+  count            = length(data.terraform_remote_state.vms.outputs.master_instances)
   target_group_arn = aws_lb_target_group.k8s_masters_tg.arn
-  target_id        = aws_instance.masters[count.index].id
+  target_id        = data.terraform_remote_state.vms.outputs.master_instances[count.index].instance_id
   port             = 6443
 }
 
@@ -69,5 +82,3 @@ resource "aws_lb_listener" "k8s_api_listener" {
     target_group_arn = aws_lb_target_group.k8s_masters_tg.arn
   }
 }
-
-

@@ -1,0 +1,60 @@
+---
+- name: Verify Kubernetes Cluster
+  hosts: master1
+  become: yes
+  gather_facts: yes
+  
+  tasks:
+    - name: Get cluster nodes
+      shell: kubectl get nodes -o wide
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: cluster_nodes
+      
+    - name: Display cluster nodes
+      debug:
+        var: cluster_nodes.stdout_lines
+        
+    - name: Get cluster info
+      shell: kubectl cluster-info
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: cluster_info
+      
+    - name: Display cluster info
+      debug:
+        var: cluster_info.stdout_lines
+        
+    - name: Get system pods status
+      shell: kubectl get pods -n kube-system -o wide
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: system_pods
+      
+    - name: Display system pods
+      debug:
+        var: system_pods.stdout_lines
+        
+    - name: Check that all nodes are Ready
+      shell: kubectl get nodes --no-headers | awk '{print $2}' | grep -v Ready | wc -l
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: not_ready_nodes
+      
+    - name: Verify all nodes are ready
+      assert:
+        that:
+          - not_ready_nodes.stdout | int == 0
+        fail_msg: "Some nodes are not in Ready state"
+        success_msg: "All nodes are Ready!"
+        
+    - name: Test cluster with a simple pod
+      shell: |
+        kubectl run test-pod --image=nginx --rm -it --restart=Never --command -- /bin/echo "Cluster is working!"
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: test_pod
+      
+    - name: Display test pod output
+      debug:
+        var: test_pod.stdout_lines
