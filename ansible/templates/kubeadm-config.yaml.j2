@@ -1,11 +1,11 @@
 apiVersion: kubeadm.k8s.io/v1beta3
 kind: InitConfiguration
 localAPIEndpoint:
-  advertiseAddress: {{ ansible_default_ipv4.address }}
+  advertiseAddress: {{ ansible_host }}
   bindPort: 6443
 nodeRegistration:
   kubeletExtraArgs:
-    node-ip: {{ ansible_default_ipv4.address }}
+    node-ip: {{ ansible_host }}
 ---
 apiVersion: kubeadm.k8s.io/v1beta3
 kind: ClusterConfiguration
@@ -14,11 +14,11 @@ controlPlaneEndpoint: "{{ lb_endpoint }}:6443"
 apiServer:
   certSANs:
     - "{{ lb_endpoint }}"
-    - "{{ ansible_default_ipv4.address }}"
+    - "{{ ansible_host }}"
     - "127.0.0.1"
     - "localhost"
 {% for host in groups['masters'] %}
-    - "{{ hostvars[host]['ansible_default_ipv4']['address'] }}"
+    - "{{ hostvars[host]['ansible_host'] }}"
 {% endfor %}
 networking:
   podSubnet: "{{ pod_network_cidr }}"

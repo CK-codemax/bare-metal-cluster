@@ -74,6 +74,8 @@ cat >> "$INVENTORY_DIR/hosts.yml" << EOF
         ansible_user: ubuntu
         ansible_ssh_private_key_file: ../terraform/provision-vms/worker-key.pem
         ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+  vars:
+    lb_dns_name: "${LB_DNS_NAME:-PLACEHOLDER_LB_ENDPOINT}"
 EOF
 
 echo "✅ Ansible inventory generated at $INVENTORY_DIR/hosts.yml"
