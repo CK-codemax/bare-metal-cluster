@@ -4,10 +4,19 @@
   become: yes
   gather_facts: yes
   vars:
-    k8s_version: "1.28.0"
+    k8s_version: "1.31.0"
     pod_network_cidr: "10.244.0.0/16"
     
   tasks:
+    - name: Check kubeadm version
+      command: kubeadm version -o short
+      register: kubeadm_version_output
+      changed_when: false
+      
+    - name: Display kubeadm version
+      debug:
+        msg: "Detected kubeadm version: {{ kubeadm_version_output.stdout }}"
+        
     - name: Get load balancer endpoint from Terraform output
       set_fact:
         lb_endpoint: "{{ lb_dns_name | default('PLACEHOLDER_LB_ENDPOINT') }}"

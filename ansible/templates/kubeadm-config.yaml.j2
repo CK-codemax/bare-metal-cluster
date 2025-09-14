@@ -1,4 +1,4 @@
-apiVersion: kubeadm.k8s.io/v1beta3
+apiVersion: kubeadm.k8s.io/v1beta4
 kind: InitConfiguration
 localAPIEndpoint:
   advertiseAddress: {{ ansible_host }}
@@ -7,7 +7,7 @@ nodeRegistration:
   kubeletExtraArgs:
     node-ip: {{ ansible_host }}
 ---
-apiVersion: kubeadm.k8s.io/v1beta3
+apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
 kubernetesVersion: v{{ k8s_version }}
 controlPlaneEndpoint: "{{ lb_endpoint }}:6443"
