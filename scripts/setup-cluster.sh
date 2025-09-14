@@ -61,7 +61,7 @@ test_connectivity() {
     
     cd "$PROJECT_ROOT/ansible"
     
-    if ansible all -m ping > /dev/null 2>&1; then
+    if ansible all -i inventory/hosts.yml -m ping > /dev/null 2>&1; then
         success "All hosts are reachable!"
     else
         error "Some hosts are not reachable. Please check your inventory file and ensure instances are running."
@@ -74,7 +74,7 @@ install_prerequisites() {
     
     cd "$PROJECT_ROOT/ansible"
     
-    ansible-playbook playbooks/01-install-prerequisites.yml
+    ansible-playbook -i inventory/hosts.yml playbooks/01-install-prerequisites.yml
     
     success "Prerequisites installed"
 }
@@ -85,8 +85,8 @@ verify_prerequisites() {
     
     cd "$PROJECT_ROOT/ansible"
     
-    ansible-playbook playbooks/02-verify-prerequisites.yml
-    
+    ansible-playbook -i inventory/hosts.yml playbooks/02-verify-prerequisites.yml
+
     success "Prerequisites verified"
 }
 
@@ -96,8 +96,8 @@ configure_hostnames() {
     
     cd "$PROJECT_ROOT/ansible"
     
-    ansible-playbook playbooks/03-configure-hostnames.yml
-    
+    ansible-playbook -i inventory/hosts.yml playbooks/03-configure-hostnames.yml
+
     success "Hostnames configured"
 }
 
@@ -107,8 +107,8 @@ init_first_master() {
     
     cd "$PROJECT_ROOT/ansible"
     
-    ansible-playbook playbooks/04-init-first-master.yml
-    
+    ansible-playbook -i inventory/hosts.yml playbooks/04-init-first-master.yml
+
     success "First master initialized"
 }
 
@@ -118,8 +118,8 @@ install_cni() {
     
     cd "$PROJECT_ROOT/ansible"
     
-    ansible-playbook playbooks/05-install-cni.yml
-    
+    ansible-playbook -i inventory/hosts.yml playbooks/05-install-cni.yml
+
     success "CNI installed"
 }
 
@@ -129,8 +129,8 @@ join_masters() {
     
     cd "$PROJECT_ROOT/ansible"
     
-    ansible-playbook playbooks/06-join-masters.yml
-    
+    ansible-playbook -i inventory/hosts.yml playbooks/06-join-masters.yml
+
     success "Additional masters joined"
 }
 
@@ -140,8 +140,8 @@ join_workers() {
     
     cd "$PROJECT_ROOT/ansible"
     
-    ansible-playbook playbooks/07-join-workers.yml
-    
+    ansible-playbook -i inventory/hosts.yml playbooks/07-join-workers.yml
+
     success "Worker nodes joined"
 }
 
@@ -151,7 +151,7 @@ verify_cluster() {
     
     cd "$PROJECT_ROOT/ansible"
     
-    ansible-playbook playbooks/08-verify-cluster.yml
+    ansible-playbook -i inventory/hosts.yml playbooks/08-verify-cluster.yml
     
     success "Cluster verification completed"
 }

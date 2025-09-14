@@ -59,7 +59,7 @@ test-connectivity:
 # Verify cluster
 verify:
 	@echo "🔍 Verifying cluster status..."
-	cd ansible && ansible-playbook playbooks/08-verify-cluster.yml
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/08-verify-cluster.yml
 
 # Test cluster functionality
 test:

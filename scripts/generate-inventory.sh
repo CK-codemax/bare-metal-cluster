@@ -35,7 +35,7 @@ if [ -f "$LB_TERRAFORM_DIR/terraform.tfstate" ]; then
     LB_DNS_NAME=$(echo "$LB_OUTPUT" | jq -r '.k8s_api_endpoint.value // empty')
 fi
 
-# Generate simple Ansible inventory
+# Generate simple Ansible inventory (like vprofile-kubernetes format)
 cat > "$INVENTORY_DIR/hosts.yml" << EOF
 all:
   hosts:
@@ -47,7 +47,7 @@ echo "$TERRAFORM_OUTPUT" | jq -r '.master_instances.value[] | "    \(.name):\n  
 # Add worker hosts  
 echo "$TERRAFORM_OUTPUT" | jq -r '.worker_instances.value[] | "    \(.name):\n      ansible_host: \(.public_ip)"' >> "$INVENTORY_DIR/hosts.yml"
 
-# Add children and variables
+# Add children and variables (simplified structure)
 cat >> "$INVENTORY_DIR/hosts.yml" << EOF
   children:
     masters:
@@ -74,7 +74,6 @@ cat >> "$INVENTORY_DIR/hosts.yml" << EOF
         ansible_user: ubuntu
         ansible_ssh_private_key_file: ../terraform/provision-vms/master-key.pem
         ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-        lb_dns_name: "${LB_DNS_NAME:-PLACEHOLDER_LB_ENDPOINT}"
 EOF
 
 echo "✅ Ansible inventory generated at $INVENTORY_DIR/hosts.yml"

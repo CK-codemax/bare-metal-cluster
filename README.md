@@ -283,26 +283,26 @@ ansible-playbook playbooks/08-verify-cluster.yml
 cd ansible
 
 # Test connectivity to all nodes
-ansible all -m ping
+ansible all -i inventory/hosts.yml -m ping
 
 # Check system status on all nodes
-ansible all -m shell -a "systemctl status kubelet"
+ansible all -i inventory/hosts.yml -m shell -a "systemctl status kubelet"
 
 # Restart services if needed
-ansible all -m systemd -a "name=kubelet state=restarted" --become
+ansible all -i inventory/hosts.yml -m systemd -a "name=kubelet state=restarted" --become
 
 # Check containerd status
-ansible all -m shell -a "systemctl status containerd" --become
+ansible all -i inventory/hosts.yml -m shell -a "systemctl status containerd" --become
 
 # Run commands on specific groups
-ansible masters -m shell -a "kubectl get nodes" --become
-ansible workers -m shell -a "hostname"
+ansible masters -i inventory/hosts.yml -m shell -a "kubectl get nodes" --become
+ansible workers -i inventory/hosts.yml -m shell -a "hostname"
 
 # Check disk space on all nodes
-ansible all -m shell -a "df -h"
+ansible all -i inventory/hosts.yml -m shell -a "df -h"
 
 # Update packages on all nodes
-ansible all -m apt -a "update_cache=yes upgrade=yes" --become
+ansible all -i inventory/hosts.yml -m apt -a "update_cache=yes upgrade=yes" --become
 ```
 
 **Ansible Inventory Management:**
@@ -314,11 +314,11 @@ ansible all -m apt -a "update_cache=yes upgrade=yes" --become
 cat ansible/inventory/hosts.yml
 
 # Test specific groups
-ansible masters -m ping
-ansible workers -m ping
+ansible masters -i inventory/hosts.yml -m ping
+ansible workers -i inventory/hosts.yml -m ping
 
 # List all hosts
-ansible all --list-hosts
+ansible all -i inventory/hosts.yml --list-hosts
 ```
 
 **Advanced Ansible Operations:**
@@ -326,25 +326,25 @@ ansible all --list-hosts
 cd ansible
 
 # Run playbooks with extra variables
-ansible-playbook playbooks/04-init-first-master.yml -e "k8s_version=1.29.0"
+ansible-playbook -i inventory/hosts.yml playbooks/04-init-first-master.yml -e "k8s_version=1.29.0"
 
 # Run playbooks with increased verbosity
-ansible-playbook playbooks/main.yml -v
+ansible-playbook -i inventory/hosts.yml playbooks/main.yml -v
 
 # Run playbooks in check mode (dry run)
-ansible-playbook playbooks/01-install-prerequisites.yml --check
+ansible-playbook -i inventory/hosts.yml playbooks/01-install-prerequisites.yml --check
 
 # Run specific tasks by tags (if implemented)
-ansible-playbook playbooks/main.yml --tags "install"
+ansible-playbook -i inventory/hosts.yml playbooks/main.yml --tags "install"
 
 # Skip specific tasks by tags
-ansible-playbook playbooks/main.yml --skip-tags "verify"
+ansible-playbook -i inventory/hosts.yml playbooks/main.yml --skip-tags "verify"
 
 # Run playbooks on specific hosts
-ansible-playbook playbooks/02-verify-prerequisites.yml --limit master1
+ansible-playbook -i inventory/hosts.yml playbooks/02-verify-prerequisites.yml --limit master1
 
 # Run playbooks with different inventory
-ansible-playbook playbooks/main.yml -i custom-inventory.yml
+ansible-playbook -i custom-inventory.yml playbooks/main.yml
 ```
 
 ## 📁 Project Structure
