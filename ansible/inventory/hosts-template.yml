@@ -18,16 +18,16 @@ all:
         master1:
         master2:
         master3:
+      vars:
+        ansible_user: ubuntu
+        ansible_ssh_private_key_file: ../terraform/provision-vms/master-key.pem
+        ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
     workers:
       hosts:
         worker1:
         worker2:
         worker3:
-    k8s_cluster:
-      children:
-        masters:
-        workers:
       vars:
         ansible_user: ubuntu
-        ansible_ssh_private_key_file: ../terraform/provision-vms/master-key.pem
+        ansible_ssh_private_key_file: ../terraform/provision-vms/worker-key.pem
         ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'

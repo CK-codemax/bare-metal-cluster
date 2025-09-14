@@ -58,6 +58,10 @@ EOF
 echo "$MASTER_NAMES" | sed 's/^/        /' | sed 's/$/:/g' >> "$INVENTORY_DIR/hosts.yml"
 
 cat >> "$INVENTORY_DIR/hosts.yml" << EOF
+      vars:
+        ansible_user: ubuntu
+        ansible_ssh_private_key_file: ../terraform/provision-vms/master-key.pem
+        ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
     workers:
       hosts:
 EOF
@@ -66,13 +70,9 @@ EOF
 echo "$WORKER_NAMES" | sed 's/^/        /' | sed 's/$/:/g' >> "$INVENTORY_DIR/hosts.yml"
 
 cat >> "$INVENTORY_DIR/hosts.yml" << EOF
-    k8s_cluster:
-      children:
-        masters:
-        workers:
       vars:
         ansible_user: ubuntu
-        ansible_ssh_private_key_file: ../terraform/provision-vms/master-key.pem
+        ansible_ssh_private_key_file: ../terraform/provision-vms/worker-key.pem
         ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
 EOF
 
