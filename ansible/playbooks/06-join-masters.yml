@@ -1,33 +1,64 @@
 ---
-- name: Join Additional Master Nodes
+- name: Generate join command on master1
+  hosts: master1
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: Ensure /tmp directory exists
+      file:
+        path: /tmp
+        state: directory
+        mode: '0755'
+
+    - name: Generate certificate key and save
+      shell: kubeadm init phase upload-certs --upload-certs | grep -oP '(?<=Using certificate key: )\w+'
+      register: cert_key
+
+    - name: Generate master join command with certificate key
+      shell: kubeadm token create --print-join-command --certificate-key {{ cert_key.stdout }}
+      register: master_join_cmd
+
+    - name: Save master join command to file
+      copy:
+        content: "{{ master_join_cmd.stdout }}"
+        dest: /tmp/master-join.sh
+        mode: '0755'
+
+    - name: Display master join command
+      debug:
+        var: master_join_cmd.stdout
+
+
+- name: Join additional masters to cluster
   hosts: masters:!master1
   become: yes
   gather_facts: yes
   serial: 1
-  
+
   tasks:
-    - name: Copy master join command from localhost
-      copy:
-        src: "../join-commands/master-join-command.sh"
-        dest: "/tmp/master-join-command.sh"
-        mode: '0755'
-        
-    - name: Join master to cluster
-      shell: /tmp/master-join-command.sh
-      register: master_join
-      
-    - name: Display master join output
+    - name: Copy master join script from master1
+      fetch:
+        src: /tmp/master-join.sh
+        dest: /tmp/master-join.sh
+        flat: yes
+
+    - name: Run join command on additional master
+      shell: sh /tmp/master-join.sh --control-plane
+      register: join_output
+
+    - name: Display join output
       debug:
-        var: master_join.stdout_lines
-        
-    - name: Create .kube directory for ubuntu user
+        var: join_output.stdout
+
+    - name: Ensure .kube directory exists for ubuntu
       file:
         path: /home/ubuntu/.kube
         state: directory
         owner: ubuntu
         group: ubuntu
         mode: '0755'
-        
+
     - name: Copy admin.conf to ubuntu user's kube config
       copy:
         src: /etc/kubernetes/admin.conf
@@ -36,15 +67,15 @@
         group: ubuntu
         mode: '0644'
         remote_src: yes
-        
-    - name: Create .kube directory for root user
+
+    - name: Ensure .kube directory exists for root
       file:
         path: /root/.kube
         state: directory
         owner: root
         group: root
         mode: '0755'
-        
+
     - name: Copy admin.conf to root user's kube config
       copy:
         src: /etc/kubernetes/admin.conf
@@ -53,8 +84,8 @@
         group: root
         mode: '0644'
         remote_src: yes
-        
-    - name: Wait for node to be ready
+
+    - name: Wait for node to be Ready
       shell: kubectl get node {{ inventory_hostname }} --no-headers | awk '{print $2}'
       environment:
         KUBECONFIG: /etc/kubernetes/admin.conf
@@ -62,3 +93,4 @@
       until: node_status.stdout == "Ready"
       retries: 30
       delay: 10
+
