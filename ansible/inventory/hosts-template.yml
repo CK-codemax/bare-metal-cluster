@@ -1,17 +1,17 @@
 all:
   hosts:
     master1:
-      ansible_host: 51.20.86.9
+      ansible_host: YOUR_MASTER1_IP_HERE
     master2:
-      ansible_host: 16.171.2.176
+      ansible_host: YOUR_MASTER2_IP_HERE
     master3:
-      ansible_host: 16.171.56.163
+      ansible_host: YOUR_MASTER3_IP_HERE
     worker1:
-      ansible_host: 16.170.234.71
+      ansible_host: YOUR_WORKER1_IP_HERE
     worker2:
-      ansible_host: 13.53.177.205
+      ansible_host: YOUR_WORKER2_IP_HERE
     worker3:
-      ansible_host: 16.16.100.72
+      ansible_host: YOUR_WORKER3_IP_HERE
 
   children:
     masters:
@@ -35,5 +35,5 @@ all:
         ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
 
   vars:
-    lb_dns_name: k8s-master-nlb-8aab4aa887b7b4f3.elb.eu-north-1.amazonaws.com:6443
+    lb_dns_name: YOUR_LOAD_BALANCER_DNS_HERE:6443
 
