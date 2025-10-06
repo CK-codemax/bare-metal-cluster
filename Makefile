@@ -1,5 +1,6 @@
 # Kubernetes HA Cluster on AWS - Makefile
-.PHONY: help deploy deploy-vms deploy-lb deploy-cluster clean clean-lb clean-vms inventory verify test
+.PHONY: help deploy deploy-vms deploy-lb deploy-cluster clean clean-lb clean-vms inventory verify test \
+setup-infrastructure setup-cluster delete-cluster
 
 # Default target
 help:
@@ -7,6 +8,9 @@ help:
 	@echo "================================"
 	@echo ""
 	@echo "Available targets:"
+	@echo "  setup-infrastructure - Setup infrastructure (VMs + LB)"
+	@echo "  setup-cluster       - Run Ansible playbooks 01–08 to configure cluster"
+	@echo "  delete-cluster      - Run playbook 09, then destroy infrastructure"
 	@echo "  deploy-infrastructure - Deploy infrastructure only (Recommended)"
 	@echo "  deploy-cluster       - Setup Kubernetes cluster (after updating inventory)"
 	@echo "  deploy               - Full deployment (may have IP issues)"
@@ -20,6 +24,30 @@ help:
 	@echo "  clean-lb             - Remove only Load Balancer"
 	@echo "  clean-vms            - Remove only EC2 instances"
 	@echo "  help                 - Show this help"
+# New canonical target: setup infrastructure (alias of deploy-infrastructure)
+setup-infrastructure: deploy-infrastructure
+
+# New canonical target: setup cluster by running playbooks 01–08 directly
+setup-cluster:
+	@echo "☸️  Running Ansible playbooks 01–08 to configure the cluster..."
+	@cd ansible && \
+	ansible-playbook -i inventory/hosts.yml playbooks/01-install-prerequsites.yml && \
+	ansible-playbook -i inventory/hosts.yml playbooks/02-verify-prerequisites.yml && \
+	ansible-playbook -i inventory/hosts.yml playbooks/03-configure-hostnames.yml && \
+	ansible-playbook -i inventory/hosts.yml playbooks/04-init-first-master.yml && \
+	ansible-playbook -i inventory/hosts.yml playbooks/05-setup-cni.yml && \
+	ansible-playbook -i inventory/hosts.yml playbooks/06-join-other-masters.yml && \
+	ansible-playbook -i inventory/hosts.yml playbooks/07-join-workers.yml && \
+	ansible-playbook -i inventory/hosts.yml playbooks/08-verify-cluster.yml
+
+# Delete cluster: run playbook 09, then destroy infrastructure (non-interactive)
+delete-cluster:
+	@echo "🗑️  Cleaning up cluster via Ansible playbook 09, then deleting infrastructure..."
+	@cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/09-clean-up-cluster.yml || true
+	@./scripts/cleanup-cluster.sh lb || true
+	@./scripts/cleanup-cluster.sh vms || true
+	@./scripts/cleanup-cluster.sh files || true
+
 
 # Deploy infrastructure only (Recommended)
 deploy-infrastructure:

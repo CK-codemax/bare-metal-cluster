@@ -1,6 +1,6 @@
 # High-Availability Kubernetes Cluster on AWS
 
-This project automates the deployment of a production-ready, highly available Kubernetes cluster on AWS using Terraform and Ansible. The cluster consists of 3 master nodes and 3 worker nodes with proper load balancing and node naming.
+This project automates the deployment of a production-ready, highly available Kubernetes cluster on AWS using Terraform and Ansible. The cluster consists of 3 control-plane nodes and 3 worker nodes (6 nodes total) with proper load balancing and node naming.
 
 ## 🏗️ Architecture
 
@@ -29,13 +29,17 @@ This project automates the deployment of a production-ready, highly available Ku
 
 ## ✨ Features
 
-- **High Availability**: 3 master nodes with etcd clustering
+- **High Availability**: 3 control-plane nodes with etcd clustering
 - **Load Balancing**: Network Load Balancer for API server
 - **Proper Node Naming**: Nodes named as master1, master2, worker1, etc.
 - **Automated Setup**: Complete automation with Terraform + Ansible
 - **Production Ready**: Includes security groups, proper networking
 - **Modular Design**: Separate contexts for VMs and Load Balancer
 - **CNI Integration**: Calico network plugin pre-configured
+
+## 🧱 HA Topology: Stacked etcd (kubeadm recommended pattern)
+
+This cluster uses the stacked etcd topology, where each control-plane node runs both the Kubernetes control-plane components and a local etcd member in the same host.
 
 ## 📋 Prerequisites
 
@@ -159,14 +163,13 @@ nano ansible/inventory/hosts.yml  # Update with actual IPs
 # Deploy everything with one command (uses generate-inventory.sh)
 ./scripts/deploy-cluster.sh
 
-# Generate Ansible inventory from Terraform outputs (may fail)
-./scripts/generate-inventory.sh
+# Note: inventory generator was removed; update ansible/inventory/hosts.yml manually
 ```
 
 **Cleanup Commands:**
 ```bash
-# Full cleanup of all resources
-./scripts/cleanup-cluster.sh
+# Full cleanup of all resources (Ansible 09 + infra destroy)
+make delete-cluster
 
 # Partial cleanup options
 ./scripts/cleanup-cluster.sh lb     # Remove only Load Balancer
@@ -182,9 +185,9 @@ nano ansible/inventory/hosts.yml  # Update with actual IPs
 make help
 
 # Recommended two-step deployment
-make deploy-infrastructure  # Deploy infrastructure only
+make setup-infrastructure  # Setup infrastructure (VMs + LB)
 # (Then update inventory manually)
-make deploy-cluster        # Setup Kubernetes cluster
+make setup-cluster         # Run Ansible playbooks 01–08
 
 # Legacy full deployment
 make deploy                # Full deployment (may have IP issues)
@@ -197,7 +200,7 @@ make deploy-lb             # Deploy Load Balancer
 **Management Commands:**
 ```bash
 # Generate Ansible inventory
-make inventory
+# (legacy) make inventory  # Note: generator script was removed
 
 # Verify cluster health
 make verify
@@ -237,7 +240,7 @@ make validate
 make lint
 ```
 
-### Method 3: Using Ansible Directly
+### Method 3: Using Ansible Directly (Playbooks 01–08, then 09 for cleanup)
 
 **Prerequisites:** Ensure VMs and Load Balancer are deployed first.
 
@@ -246,7 +249,7 @@ make lint
 cd ansible
 
 # Run all playbooks in sequence
-ansible-playbook playbooks/main.yml
+# (No single main.yml runner; run individually as below)
 ```
 
 **Individual Playbook Execution:**
@@ -254,7 +257,7 @@ ansible-playbook playbooks/main.yml
 cd ansible
 
 # 1. Install prerequisites (containerd, kubetools)
-ansible-playbook playbooks/01-install-prerequisites.yml
+ansible-playbook playbooks/01-install-prerequsites.yml
 
 # 2. Verify prerequisites installation
 ansible-playbook playbooks/02-verify-prerequisites.yml
@@ -266,10 +269,10 @@ ansible-playbook playbooks/03-configure-hostnames.yml
 ansible-playbook playbooks/04-init-first-master.yml
 
 # 5. Install CNI (Calico)
-ansible-playbook playbooks/05-install-cni.yml
+ansible-playbook playbooks/05-setup-cni.yml
 
 # 6. Join additional master nodes
-ansible-playbook playbooks/06-join-masters.yml
+ansible-playbook playbooks/06-join-other-masters.yml
 
 # 7. Join worker nodes
 ansible-playbook playbooks/07-join-workers.yml
@@ -307,8 +310,8 @@ ansible all -i inventory/hosts.yml -m apt -a "update_cache=yes upgrade=yes" --be
 
 **Ansible Inventory Management:**
 ```bash
-# Generate inventory from Terraform outputs
-./scripts/generate-inventory.sh
+# Copy provided template if needed
+cp ansible/inventory/hosts-template.yml ansible/inventory/hosts.yml
 
 # View current inventory
 cat ansible/inventory/hosts.yml
@@ -368,24 +371,23 @@ bare-metal-cluster/
 │       └── terraform.tfvars
 ├── ansible/
 │   ├── playbooks/
-│   │   ├── main.yml           # Main orchestration playbook
-│   │   ├── 01-install-prerequisites.yml
+│   │   ├── 01-install-prerequsites.yml
 │   │   ├── 02-verify-prerequisites.yml
 │   │   ├── 03-configure-hostnames.yml
 │   │   ├── 04-init-first-master.yml
-│   │   ├── 05-install-cni.yml
-│   │   ├── 06-join-masters.yml
+│   │   ├── 05-setup-cni.yml
+│   │   ├── 06-join-other-masters.yml
 │   │   ├── 07-join-workers.yml
-│   │   └── 08-verify-cluster.yml
-│   ├── templates/
-│   │   └── kubeadm-config.yaml.j2
+│   │   ├── 08-verify-cluster.yml
+│   │   └── 09-clean-up-cluster.yml
 │   ├── inventory/
 │   │   └── hosts.yml          # Auto-generated
 │   └── ansible.cfg
 ├── scripts/
-│   ├── deploy-cluster.sh      # Main deployment script
-│   ├── generate-inventory.sh  # Ansible inventory generator
-│   └── cleanup-cluster.sh     # Cleanup script
+│   ├── setup-infrastructure.sh  # Provision VMs and NLB
+│   ├── setup-cluster.sh         # Run playbooks 01–08
+│   ├── deploy-cluster.sh        # Legacy full automation
+│   └── cleanup-cluster.sh       # Destroy infra and clean files
 └── README.md
 ```
 
@@ -478,9 +480,8 @@ cd ../terraform/provision-lb
 terraform init
 terraform apply
 
-# Update inventory with LB endpoint
+# Manually update ansible/inventory/hosts.yml with the LB DNS endpoint
 cd ../../
-./scripts/generate-inventory.sh
 ```
 
 ### 4. Configure Cluster
@@ -553,9 +554,9 @@ kubectl get pods,svc
 
 ## 🧹 Cleanup
 
-### Full Cleanup
+### Full Cleanup (Playbook 09 + infra deletion)
 ```bash
-./scripts/cleanup-cluster.sh
+make delete-cluster
 ```
 
 ### Partial Cleanup
@@ -623,6 +624,69 @@ kubectl delete pods -n kube-system -l k8s-app=calico-node
 - All nodes have proper hostnames (master1, master2, etc.)
 - SSH keys are automatically generated and stored in Terraform directories
 - The cluster is configured for production use with proper security groups
+
+## ✅ Clear Setup Instructions
+
+1) Setup infrastructure (creates 6-node HA footprint + NLB):
+```bash
+make setup-infrastructure
+```
+
+2) Update Ansible inventory with real IPs and LB DNS:
+```bash
+cp ansible/inventory/hosts-template.yml ansible/inventory/hosts.yml # if missing
+nano ansible/inventory/hosts.yml
+```
+
+Inventory guidance (edit these values):
+```yaml
+# ansible/inventory/hosts.yml
+all:
+  vars:
+    ansible_user: ubuntu
+    control_plane_endpoint: YOUR_LOAD_BALANCER_DNS_HERE:6443
+  children:
+    masters:
+      hosts:
+        master1:
+          ansible_host: YOUR_MASTER1_IP_HERE
+        master2:
+          ansible_host: YOUR_MASTER2_IP_HERE
+        master3:
+          ansible_host: YOUR_MASTER3_IP_HERE
+    workers:
+      hosts:
+        worker1:
+          ansible_host: YOUR_WORKER1_IP_HERE
+        worker2:
+          ansible_host: YOUR_WORKER2_IP_HERE
+        worker3:
+          ansible_host: YOUR_WORKER3_IP_HERE
+```
+Where to find values:
+- Replace YOUR_MASTER[1-3]_IP_HERE and YOUR_WORKER[1-3]_IP_HERE with the public IPs printed at the end of `make setup-infrastructure`.
+- Replace YOUR_LOAD_BALANCER_DNS_HERE with the printed Load Balancer DNS name.
+
+3) Verify connectivity:
+```bash
+cd ansible && ansible all -i inventory/hosts.yml -m ping
+```
+
+4) Setup the cluster (runs playbooks 01–08 in order):
+```bash
+make setup-cluster
+```
+
+5) Verify on a control-plane node:
+```bash
+ssh -i terraform/provision-vms/master-key.pem ubuntu@<master1-ip>
+kubectl get nodes -o wide
+```
+
+6) Delete the cluster when done:
+```bash
+make delete-cluster
+```
 
 ## 🤝 Contributing
 

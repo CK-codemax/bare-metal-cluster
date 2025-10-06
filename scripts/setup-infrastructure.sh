@@ -155,6 +155,37 @@ display_instance_info() {
     echo "4. Setup Kubernetes cluster:"
     echo "   ./scripts/setup-cluster.sh"
     echo ""
+
+    echo "📘 Inventory example (copy into ansible/inventory/hosts.yml):"
+    echo "-----------------------------------------------------------"
+    cat <<'EOF'
+all:
+  vars:
+    ansible_user: ubuntu
+    control_plane_endpoint: YOUR_LOAD_BALANCER_DNS_HERE:6443
+  children:
+    masters:
+      hosts:
+        master1:
+          ansible_host: YOUR_MASTER1_IP_HERE
+        master2:
+          ansible_host: YOUR_MASTER2_IP_HERE
+        master3:
+          ansible_host: YOUR_MASTER3_IP_HERE
+    workers:
+      hosts:
+        worker1:
+          ansible_host: YOUR_WORKER1_IP_HERE
+        worker2:
+          ansible_host: YOUR_WORKER2_IP_HERE
+        worker3:
+          ansible_host: YOUR_WORKER3_IP_HERE
+EOF
+    echo ""
+    echo "Replace the placeholders with the public IPs printed above and set"
+    echo "YOUR_LOAD_BALANCER_DNS_HERE to: $LB_ENDPOINT"
+    echo "Then re-run: cd ansible && ansible all -i inventory/hosts.yml -m ping"
+    echo ""
     
     success "🎊 Infrastructure deployment completed!"
 }
