@@ -1,0 +1,184 @@
+---
+- name: Clean up Kubernetes Cluster Resources
+  hosts: all
+  become: yes
+  gather_facts: yes
+  
+  tasks:
+    - name: Force delete all pods and resources from master
+      shell: |
+        kubectl delete pods --all --grace-period=0 --force --all-namespaces || true
+        kubectl delete deployments --all --grace-period=0 --force --all-namespaces || true
+        kubectl delete services --all --grace-period=0 --force --all-namespaces || true
+        kubectl delete configmaps --all --grace-period=0 --force --all-namespaces || true
+        kubectl delete secrets --all --grace-period=0 --force --all-namespaces || true
+        kubectl delete pv --all --grace-period=0 --force || true
+        kubectl delete pvc --all --grace-period=0 --force --all-namespaces || true
+        kubectl delete daemonsets --all --grace-period=0 --force --all-namespaces || true
+        kubectl delete replicasets --all --grace-period=0 --force --all-namespaces || true
+        kubectl delete statefulsets --all --grace-period=0 --force --all-namespaces || true
+        kubectl delete jobs --all --grace-period=0 --force --all-namespaces || true
+        kubectl delete cronjobs --all --grace-period=0 --force --all-namespaces || true
+        kubectl delete networkpolicies --all --grace-period=0 --force --all-namespaces || true
+        kubectl delete ingress --all --grace-period=0 --force --all-namespaces || true
+        kubectl delete namespaces --all --grace-period=0 --force || true
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      delegate_to: master1
+      register: cleanup_output
+      failed_when: false
+      
+    - name: Display cleanup output
+      debug:
+        var: cleanup_output.stdout_lines
+      when: cleanup_output.stdout_lines is defined
+      
+    - name: Wait for pods to be deleted
+      shell: kubectl get pods --all-namespaces --no-headers | wc -l
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      delegate_to: master1
+      register: pod_count
+      until: pod_count.stdout | int == 0
+      retries: 30
+      delay: 5
+      failed_when: false
+      
+    - name: Reset kubeadm on all nodes
+      command: kubeadm reset -f
+      register: kubeadm_reset
+      failed_when: false
+      changed_when: false
+      
+    - name: Display kubeadm reset output
+      debug:
+        msg: "{{ inventory_hostname }}: {{ kubeadm_reset.stdout_lines }}"
+      when: kubeadm_reset.stdout_lines is defined
+      
+    - name: Unhold Kubernetes packages (if held)
+      shell: |
+        apt-mark unhold kubelet kubeadm kubectl || true
+      changed_when: false
+      failed_when: false
+
+    - name: Remove Kubernetes packages
+      apt:
+        name:
+          - kubelet
+          - kubeadm
+          - kubectl
+        state: absent
+        purge: yes
+        allow_change_held_packages: yes
+      
+    - name: Remove containerd
+      apt:
+        name: containerd.io
+        state: absent
+        purge: yes
+      
+    - name: Remove Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable"
+        state: absent
+      
+    - name: Remove Kubernetes repository
+      apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /"
+        state: absent
+      
+    - name: Remove Kubernetes GPG key
+      file:
+        path: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        state: absent
+      
+    - name: Remove Docker GPG key
+      file:
+        path: /usr/share/keyrings/docker-archive-keyring.gpg
+        state: absent
+      
+    - name: Clean up Kubernetes directories
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/kubernetes
+        - /var/lib/kubelet
+        - /var/lib/etcd
+        - /etc/cni/net.d
+        - /opt/cni
+        - /var/lib/cni
+        - /var/lib/calico
+        - /etc/systemd/system/kubelet.service.d
+        - /etc/systemd/system/kubelet.service
+        - /usr/local/bin/crictl
+        - /usr/local/bin/runc
+
+    - name: Remove kube* binaries
+      shell: |
+        rm -f /usr/local/bin/kube* || true
+      changed_when: false
+      failed_when: false
+      
+    - name: Remove Kubernetes configuration from bashrc
+      lineinfile:
+        path: /home/ubuntu/.bashrc
+        regexp: '^export KUBECONFIG='
+        state: absent
+      
+    - name: Remove .kube directory
+      file:
+        path: /home/ubuntu/.kube
+        state: absent
+      
+    - name: Remove root .kube directory
+      file:
+        path: /root/.kube
+        state: absent
+      
+    - name: Reset sysctl settings
+      file:
+        path: /etc/sysctl.d/k8s.conf
+        state: absent
+      
+    - name: Reset modules configuration
+      file:
+        path: /etc/modules-load.d/k8s.conf
+        state: absent
+      
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+      
+    - name: Clean up iptables rules
+      shell: |
+        iptables -F || true
+        iptables -t nat -F || true
+        iptables -t mangle -F || true
+        iptables -X || true
+        iptables -t nat -X || true
+        iptables -t mangle -X || true
+      failed_when: false
+      
+    - name: Clean up IPVS rules
+      shell: |
+        ipvsadm -C || true
+      failed_when: false
+      
+    - name: Remove CNI interfaces
+      shell: |
+        ip link delete cni0 || true
+        ip link delete flannel.1 || true
+        ip link delete docker0 || true
+      failed_when: false
+      
+    - name: Clean up package cache
+      apt:
+        autoclean: yes
+        autoremove: yes
+      
+    - name: Display cleanup completion
+      debug:
+        msg: "{{ inventory_hostname }}: Kubernetes cleanup completed"
+
+
