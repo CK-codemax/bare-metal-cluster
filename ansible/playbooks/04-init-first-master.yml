@@ -7,13 +7,26 @@
     - name: Gather facts
       ansible.builtin.setup:
 
-    - name: Initialize Kubernetes control plane (hardcoded)
+    - name: Reset kubeadm (clean previous state)
+      command: kubeadm reset -f
+      register: kubeadm_reset
+      failed_when: false
+      changed_when: false
+
+    - name: Display kubeadm reset output
+      debug:
+        msg: "{{ kubeadm_reset.stdout_lines }}"
+      when: kubeadm_reset.stdout_lines is defined
+
+    - name: Initialize Kubernetes control plane (HA via LB endpoint)
       command: >
         kubeadm init
-        --control-plane-endpoint k8s-master-nlb-b34448c3892ba5bf.elb.eu-north-1.amazonaws.com:6443
+        --control-plane-endpoint {{ lb_dns_name }}
+        --pod-network-cidr=192.168.0.0/16
         --upload-certs
       args:
         creates: /etc/kubernetes/admin.conf
+      when: inventory_hostname == groups['masters'][0]
 
     - name: Ensure .kube directory exists for root
       file:
@@ -22,6 +35,7 @@
         owner: root
         group: root
         mode: '0700'
+      when: inventory_hostname == groups['masters'][0]
 
     - name: Copy admin.conf to root .kube/config
       copy:
@@ -31,6 +45,7 @@
         group: root
         mode: '0600'
         remote_src: yes
+      when: inventory_hostname == groups['masters'][0]
 
     - name: Ensure .kube directory exists for ubuntu user
       file:
@@ -39,6 +54,7 @@
         owner: ubuntu
         group: ubuntu
         mode: '0700'
+      when: inventory_hostname == groups['masters'][0]
 
     - name: Copy admin.conf to ubuntu user .kube/config
       copy:
@@ -48,6 +64,7 @@
         group: ubuntu
         mode: '0600'
         remote_src: yes
+      when: inventory_hostname == groups['masters'][0]
 
     - name: Set KUBECONFIG environment variable for ubuntu user
       lineinfile:
@@ -55,10 +72,12 @@
         line: 'export KUBECONFIG=$HOME/.kube/config'
         state: present
         create: yes
+      when: inventory_hostname == groups['masters'][0]
 
     - name: Ensure kubelet is enabled and started
       systemd:
         name: kubelet
         enabled: yes
         state: started
+
 

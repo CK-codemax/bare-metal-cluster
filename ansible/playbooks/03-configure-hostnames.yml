@@ -37,3 +37,4 @@
       systemd:
         name: systemd-hostnamed
         state: restarted
+

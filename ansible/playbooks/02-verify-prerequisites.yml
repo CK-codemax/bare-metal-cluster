@@ -69,3 +69,4 @@
     - name: Display br_netfilter status
       debug:
         msg: "{{ 'br_netfilter module is loaded' if br_netfilter.rc == 0 else 'WARNING: br_netfilter module not loaded' }}"
+

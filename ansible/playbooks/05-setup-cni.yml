@@ -15,3 +15,4 @@
       debug:
         var: calico_apply.stdout_lines
 
+
