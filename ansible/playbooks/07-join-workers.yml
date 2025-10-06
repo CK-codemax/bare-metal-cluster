@@ -1,0 +1,49 @@
+---
+- name: Join Worker Nodes
+  hosts: workers
+  become: yes
+  gather_facts: yes
+  serial: 1
+  
+  tasks:
+    - name: Reset kubeadm (clean previous state)
+      command: kubeadm reset -f
+      register: kubeadm_reset
+      failed_when: false
+      changed_when: false
+      
+    - name: Display kubeadm reset output
+      debug:
+        msg: "{{ kubeadm_reset.stdout_lines }}"
+      when: kubeadm_reset.stdout_lines is defined
+        
+    - name: Generate join command on master
+      shell: |
+        kubeadm token create --print-join-command
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      delegate_to: master1
+      register: join_command
+      
+    - name: Display join command
+      debug:
+        msg: "{{ join_command.stdout }}"
+        
+    - name: Join worker to cluster
+      shell: "{{ join_command.stdout }}"
+      register: worker_join
+      
+    - name: Display worker join output
+      debug:
+        var: worker_join.stdout_lines
+        
+    - name: Wait for node to be ready
+      shell: kubectl get node {{ inventory_hostname }} --no-headers | awk '{print $2}'
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      delegate_to: master1
+      register: node_status
+      until: node_status.stdout == "Ready"
+      retries: 30
+      delay: 10
+
